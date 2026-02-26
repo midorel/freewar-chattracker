@@ -1,31 +1,31 @@
 import requests
-import random
 import websocket
-import time
 import datetime
 import json
 from bs4 import BeautifulSoup
 
-#latest_update = time.localtime()
-
-def process_timestamp(time_str):
-    return time.strptime(f'{datetime.date.today()} {time_str}', f'%Y-%m-%d %H:%M:%S')
-
 def on_message(ws, message):
-    d = json.JSONDecoder()
-    raw = d.decode(message)
+    raw = json.loads(message)
     try:
         soup = BeautifulSoup(raw['chat'], 'html.parser')
         for chat in soup.find_all('p'):
-            # timestamp = process_timestamp(chat.span.text)
-            # if timestamp < latest_update:
-            #     continue
-            # chattext = chat.text.replace('  ', ' ')
-            # latest_update = timestamp
-            print(chat.text)
+            match chat['class'][0]:
+                case 'chattextscream' | 'chattextglobal' | 'chattextwhisper' | 'chattextclan':
+                    log_type = 'chat'
+                case 'chattext' | 'worldsay':
+                    log_type = 'field'
+                case _:
+                    log_type = 'rest'
+
+            with open(f'logs/{log_type}/{datetime.date.today()}.log', 'a') as file:
+                if log_type == 'field':
+                    chat = chat.text
+                file.write(f'{chat}\n')
+            print(chat)
+            
     except:
-        #print(raw)
-        pass
+        with open(f'logs/errors/{datetime.date.today()}.log', 'a') as file:
+            file.write(f'{raw}\n')
 
 def on_error(ws, error):
     print(f'Error!\n{error}')
@@ -49,11 +49,9 @@ if __name__ == '__main__':
         'Accept-Language': 'de,en-US;q=0.7,en;q=0.3',
     })
 
-    data = {
-        'name': 'name',
-        'password': 'passwort',
-        'submit': 'Einloggen',
-    }
+    file = open("auth/login.json")
+    data = json.loads(file.read())
+    file.close()
 
     session.request('post', 'https://welt11.freewar.de/freewar/internal/index.php', data=data)
     session.request('get', 'https://welt11.freewar.de/freewar/internal/friset.php')
