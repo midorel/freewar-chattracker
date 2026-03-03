@@ -10,8 +10,10 @@ def on_message(ws, message):
         soup = BeautifulSoup(raw['chat'], 'html.parser')
         for chat in soup.find_all('p'):
             match chat['class'][0]:
-                case 'chattextscream' | 'chattextglobal' | 'chattextwhisper' | 'chattextclan':
+                case 'chattextscream' | 'chattextglobal':
                     log_type = 'chat'
+                case 'chattextwhisper' | 'chattextclan' | 'chattextgroup':
+                    log_type = 'private'
                 case 'chattext' | 'worldsay':
                     log_type = 'field'
                 case _:
@@ -20,7 +22,17 @@ def on_message(ws, message):
             with open(f'logs/{log_type}/{datetime.date.today()}.log', 'a') as file:
                 if log_type == 'field':
                     chat = chat.text
+                
                 file.write(f'{chat}\n')
+
+            if log_type == 'chat':
+                with open('html/Chattracker.htm', 'r') as file:
+                    soup = BeautifulSoup(file.read(), 'html.parser')
+                    soup.body.append(chat)
+                    new_content = soup.prettify()
+                with open('html/Chattracker.htm', 'w') as file:
+                    file.write(new_content)
+
             print(chat)
             
     except:
@@ -29,14 +41,19 @@ def on_message(ws, message):
 
 def on_error(ws, error):
     print(f'Error!\n{error}')
+    login_session(ws)
 
 def on_close(ws, close_status_code, close_msg):
     print(f'Closed!\n{close_status_code}: {close_msg}')
+    login_session(ws)
+
+def on_reconnect(ws):
+    login_session(ws)
 
 def on_open(ws):
     print('Opened connection')
 
-if __name__ == '__main__':
+def login_session(ws):
     session = requests.session()
 
     session.headers.update({
@@ -49,10 +66,9 @@ if __name__ == '__main__':
         'Accept-Language': 'de,en-US;q=0.7,en;q=0.3',
     })
 
-    file = open("auth/login.json")
-    data = json.loads(file.read())
-    file.close()
-
+    with open("auth/login.json") as file:
+        data = json.loads(file.read())
+    
     session.request('post', 'https://welt11.freewar.de/freewar/internal/index.php', data=data)
     session.request('get', 'https://welt11.freewar.de/freewar/internal/friset.php')
     
@@ -60,17 +76,20 @@ if __name__ == '__main__':
         'Sec-Fetch-Mode': 'websocket',
         'Sec-WebSocket-Extensions': 'permessage-deflate',
     })
+    
+    ws.cookie = f'PHPSESSID="{session.cookies["PHPSESSID"]}"'
 
-    cookies = f'PHPSESSID="{session.cookies["PHPSESSID"]}"'
 
+if __name__ == '__main__':
     ws = websocket.WebSocketApp(
         'wss://welt11.freewar.de/freewar/internal/ws/3275',
         on_open=on_open,
         on_message=on_message,
         on_error=on_error,
         on_close=on_close,
-        cookie=cookies,
     )
+
+    login_session(ws)
 
     ws.run_forever(
         reconnect=5,
