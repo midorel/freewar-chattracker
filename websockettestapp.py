@@ -4,6 +4,15 @@ import datetime
 import json
 from bs4 import BeautifulSoup
 
+def write_to_html(chat):
+    with open('html/chattracker.htm', 'r') as file:
+        soup = BeautifulSoup(file.read(), 'html.parser')
+        soup.body.append(chat)
+        new_content = soup.prettify()
+    with open('html/chattracker.htm', 'w') as file:
+        file.write(new_content)
+
+
 def on_message(ws, message):
     raw = json.loads(message)
     try:
@@ -26,12 +35,7 @@ def on_message(ws, message):
                 file.write(f'{chat}\n')
 
             if log_type == 'chat':
-                with open('html/Chattracker.htm', 'r') as file:
-                    soup = BeautifulSoup(file.read(), 'html.parser')
-                    soup.body.append(chat)
-                    new_content = soup.prettify()
-                with open('html/Chattracker.htm', 'w') as file:
-                    file.write(new_content)
+                write_to_html(chat)
 
             print(chat)
             
